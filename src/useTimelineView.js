@@ -47,7 +47,7 @@ export function useTimelineView(data) {
   });
   const [zoomHistory, setZoomHistory] = useState([]);
   const visibleRangeRef = useRef(visibleRange);
-  const didInitRef = useRef(false);
+  const seenFullRangeRef = useRef({ start: fullRange.start, end: fullRange.end });
 
   const fullSpan = fullRange.end - fullRange.start;
   const maxVisibleSpan = fullSpan * 1.25;
@@ -78,11 +78,9 @@ export function useTimelineView(data) {
   );
 
   useEffect(() => {
-    // Skip the first firing — useState already initialized correctly from URL.
-    if (!didInitRef.current) {
-      didInitRef.current = true;
-      return;
-    }
+    // Skip if fullRange hasn't actually changed — handles initial mount and StrictMode double-fire.
+    if (seenFullRangeRef.current.start === fullRange.start && seenFullRangeRef.current.end === fullRange.end) return;
+    seenFullRangeRef.current = { start: fullRange.start, end: fullRange.end };
     setZoomHistory([]);
     clearRangeParam();
     visibleRangeRef.current = fullRange;
