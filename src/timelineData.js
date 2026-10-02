@@ -32,13 +32,53 @@ export function buildTimelineData(records) {
     eventsByGroup[event.groupIndex].push(event);
   }
 
+  const groupColorIndices = groupNames.map((_, index) => index);
+
+  const allStatuses = [...new Set(events.map((e) => e.status))].sort();
+
   const now = Date.now();
   return {
     events,
     groupNames,
     eventsByGroup,
+    groupColorIndices,
+    allStatuses,
     firstEventTime: events.length ? events[0].time : now,
     lastEventTime: events.length ? events[events.length - 1].time : now,
+  };
+}
+
+/** Returns a new data object filtered by visible groups and statuses, with stable color indices. */
+export function filterData(data, visibleGroups, visibleStatuses) {
+  const groupsChanged = visibleGroups.size < data.groupNames.length;
+  const statusesChanged = visibleStatuses.size < data.allStatuses.length;
+  if (!groupsChanged && !statusesChanged) return data;
+
+  const filteredGroupNames = data.groupNames.filter((name) => visibleGroups.has(name));
+  const newIndexByName = new Map(filteredGroupNames.map((name, i) => [name, i]));
+  const originalIndexByName = new Map(data.groupNames.map((name, i) => [name, i]));
+
+  const events = data.events
+    .filter((e) => visibleGroups.has(e.groupName) && visibleStatuses.has(e.status))
+    .map((e) => ({ ...e, groupIndex: newIndexByName.get(e.groupName) }));
+
+  const eventsByGroup = filteredGroupNames.map(() => []);
+  for (const event of events) {
+    eventsByGroup[event.groupIndex].push(event);
+  }
+
+  const groupColorIndices = filteredGroupNames.map(
+    (name) => data.groupColorIndices[originalIndexByName.get(name)],
+  );
+
+  return {
+    events,
+    groupNames: filteredGroupNames,
+    eventsByGroup,
+    groupColorIndices,
+    allStatuses: data.allStatuses,
+    firstEventTime: events.length ? events[0].time : data.firstEventTime,
+    lastEventTime: events.length ? events[events.length - 1].time : data.lastEventTime,
   };
 }
 

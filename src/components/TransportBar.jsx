@@ -1,23 +1,25 @@
+import { useState } from 'react';
 import { formatClockTime, formatDateLabel } from '../timeFormat';
-import { PLAYBACK_SPEEDS, describeSpeed } from '../usePlayback';
-import { NextIcon, PauseIcon, PlayIcon, PreviousIcon } from './Icons';
+import { CheckIcon, FunnelIcon, NextIcon, PreviousIcon, ShareIcon } from './Icons';
 
-/** Clock readout, play controls, speed and playback options. */
 export default function TransportBar({
   playheadTime,
   passedCount,
   totalCount,
-  isPlaying,
-  onTogglePlay,
   onStepBackward,
   onStepForward,
-  playbackSpeed,
-  onChangeSpeed,
-  skipQuietGaps,
-  onChangeSkipQuietGaps,
-  followPlayhead,
-  onChangeFollowPlayhead,
+  onToggleFilterDrawer,
+  filterActive,
 }) {
+  const [copied, setCopied] = useState(false);
+
+  const handleShare = () => {
+    navigator.clipboard.writeText(window.location.href).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    });
+  };
+
   return (
     <div className="transport">
       <div>
@@ -35,39 +37,28 @@ export default function TransportBar({
           <button type="button" className="button icon-button" onClick={onStepBackward} aria-label="Previous activity" title="Previous activity (←)">
             <PreviousIcon />
           </button>
-          <button
-            type="button"
-            className="button primary play-button"
-            onClick={onTogglePlay}
-            aria-label={isPlaying ? 'Pause' : 'Play'}
-            title={isPlaying ? 'Pause (Space)' : 'Play (Space)'}
-          >
-            {isPlaying ? <PauseIcon /> : <PlayIcon />}
-          </button>
           <button type="button" className="button icon-button" onClick={onStepForward} aria-label="Next activity" title="Next activity (→)">
             <NextIcon />
           </button>
         </div>
-
-        <label className="speed-picker">
-          Speed
-          <select value={playbackSpeed} onChange={(event) => onChangeSpeed(Number(event.target.value))} title="Playback speed ([ and ])">
-            {PLAYBACK_SPEEDS.map((speed) => (
-              <option key={speed} value={speed}>
-                {describeSpeed(speed)}
-              </option>
-            ))}
-          </select>
-        </label>
-
-        <label className="checkbox">
-          <input type="checkbox" checked={skipQuietGaps} onChange={(event) => onChangeSkipQuietGaps(event.target.checked)} />
-          Skip quiet gaps
-        </label>
-        <label className="checkbox">
-          <input type="checkbox" checked={followPlayhead} onChange={(event) => onChangeFollowPlayhead(event.target.checked)} />
-          Follow playhead
-        </label>
+        <button
+          type="button"
+          className={`button icon-button${filterActive ? ' primary' : ''}`}
+          onClick={onToggleFilterDrawer}
+          aria-label="Filter groups"
+          title="Filter groups"
+        >
+          <FunnelIcon />
+        </button>
+        <button
+          type="button"
+          className={`button icon-button${copied ? ' success' : ''}`}
+          onClick={handleShare}
+          aria-label="Copy link"
+          title="Copy link to current view"
+        >
+          {copied ? <CheckIcon /> : <ShareIcon />}
+        </button>
       </div>
     </div>
   );

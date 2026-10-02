@@ -18,8 +18,10 @@ const reducedMotionQuery = window.matchMedia('(prefers-reduced-motion: reduce)')
  *   small circle   = not viewed
  */
 export function markerStyleFor(event) {
-  if (!event.wasViewed) return { shape: 'circle', size: 3.5, filled: false };
-  return { shape: 'diamond', size: event.wasSaved ? 5.5 : 5, filled: event.wasSaved };
+  const status = (event.status || '').toUpperCase();
+  if (status === 'SENT') return { shape: 'circle', size: 4, filled: false };
+  if (status === 'OPENED') return { shape: 'square', size: 4, filled: false };
+  return { shape: 'diamond', size: 5, filled: false }; // RECEIVED or unknown
 }
 
 function traceMarkerPath(ctx, shape, x, y, size) {
@@ -28,6 +30,11 @@ function traceMarkerPath(ctx, shape, x, y, size) {
     ctx.arc(x, y, size, 0, Math.PI * 2);
     return;
   }
+  if (shape === 'square') {
+    ctx.rect(x - size, y - size, size * 2, size * 2);
+    return;
+  }
+  // diamond
   ctx.moveTo(x, y - size);
   ctx.lineTo(x + size, y);
   ctx.lineTo(x, y + size);
@@ -36,13 +43,8 @@ function traceMarkerPath(ctx, shape, x, y, size) {
 }
 
 function drawMarker(ctx, event, x, y, groupColor, colors) {
-  const { shape, size, filled } = markerStyleFor(event);
+  const { shape, size } = markerStyleFor(event);
   traceMarkerPath(ctx, shape, x, y, size);
-  if (filled) {
-    ctx.fillStyle = groupColor;
-    ctx.fill();
-    return;
-  }
   ctx.fillStyle = colors.surface;
   ctx.fill();
   ctx.strokeStyle = groupColor;
@@ -163,7 +165,8 @@ function drawSelectionBox(ctx, layout, selectionBox, scale, colors) {
 function drawGroupRow(ctx, { layout, data, groupIndex, visibleRange, scale, playheadTime, colors, pulseTracker, hoveredEvent, selectedEvent, now }) {
   const { tracksLeft, tracksRight, rulerHeight, axisTop } = layout;
   const y = rowCenterY(layout, groupIndex);
-  const groupColor = colorForGroup(colors, groupIndex);
+  const colorIdx = data.groupColorIndices ? data.groupColorIndices[groupIndex] : groupIndex;
+  const groupColor = colorForGroup(colors, colorIdx);
 
   // Label in the left column
   ctx.textAlign = 'left';
@@ -341,7 +344,8 @@ export function renderOverviewBarcode({ data, colors, layout, fullRange }) {
   const bandHeight = (layout.height - 10) / Math.max(data.groupNames.length, 1);
 
   for (const event of data.events) {
-    ctx.fillStyle = colorForGroup(colors, event.groupIndex);
+    const colorIdx = data.groupColorIndices ? data.groupColorIndices[event.groupIndex] : event.groupIndex;
+    ctx.fillStyle = colorForGroup(colors, colorIdx);
     ctx.globalAlpha = event.wasSaved ? 1 : 0.55;
     ctx.fillRect(Math.round(scale.timeToX(event.time)), 5 + event.groupIndex * bandHeight + 0.5, 1.5, Math.max(2, bandHeight - 1));
   }

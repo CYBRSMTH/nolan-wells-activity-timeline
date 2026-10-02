@@ -5,7 +5,7 @@ import { ONE_SECOND, ONE_MINUTE, ONE_HOUR, ONE_DAY } from './timeFormat';
 import { indexOfFirstEventAtOrAfter } from './timelineData';
 
 const RULER_HEIGHT = 26; // strip above the tracks where the playhead handle sits
-const ROW_HEIGHT = 46; // height of one group's track
+const ROW_HEIGHT = 28; // height of one group's track
 const AXIS_HEIGHT = 30; // timestamp labels under the tracks
 const RIGHT_PADDING = 16;
 

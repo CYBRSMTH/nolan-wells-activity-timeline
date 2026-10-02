@@ -26,16 +26,16 @@ function MarkerLegend() {
   return (
     <ul className="legend" aria-label="Marker legend">
       <li>
-        <svg viewBox="0 0 14 14" aria-hidden="true"><path d="M7 1.5 12.5 7 7 12.5 1.5 7z" className="legend-filled" /></svg>
-        Saved
-      </li>
-      <li>
         <svg viewBox="0 0 14 14" aria-hidden="true"><path d="M7 2 12 7 7 12 2 7z" className="legend-hollow" /></svg>
-        Not saved
+        Received
       </li>
       <li>
-        <svg viewBox="0 0 14 14" aria-hidden="true"><circle cx="7" cy="7" r="3.5" className="legend-hollow" /></svg>
-        Not viewed
+        <svg viewBox="0 0 14 14" aria-hidden="true"><rect x="3" y="3" width="8" height="8" className="legend-hollow" /></svg>
+        Opened
+      </li>
+      <li>
+        <svg viewBox="0 0 14 14" aria-hidden="true"><circle cx="7" cy="7" r="4" className="legend-hollow" /></svg>
+        Sent
       </li>
     </ul>
   );

@@ -10,7 +10,7 @@ const ARRIVAL_HIGHLIGHT_MS = 900;
  * Right: full details for the selected activity, or the latest one at the
  * playhead when nothing is selected, so it updates live during playback.
  */
-export default function ActivityPanel({ data, passedCount, selectedEvent, onSelectEvent, colors, pulseTracker }) {
+export default function ActivityPanel({ data, passedCount, selectedEvent, onSelectEvent, colors, pulseTracker, showRecord }) {
   const recentEvents = useMemo(
     () => data.events.slice(Math.max(0, passedCount - MAX_LIST_ROWS), passedCount).reverse(),
     [data, passedCount],
@@ -29,7 +29,7 @@ export default function ActivityPanel({ data, passedCount, selectedEvent, onSele
         </h2>
         <ol className="activity-list">
           {recentEvents.length === 0 && (
-            <li className="empty-message">Nothing yet. Press play, or tap a track to move the playhead.</li>
+            <li className="empty-message">Nothing yet. Tap a track to move the playhead.</li>
           )}
           {recentEvents.map((event) => (
             <ActivityRow
@@ -39,6 +39,7 @@ export default function ActivityPanel({ data, passedCount, selectedEvent, onSele
               isSelected={event === selectedEvent}
               justArrived={pulseTracker.firedWithin(event.id, now, ARRIVAL_HIGHLIGHT_MS)}
               onSelect={onSelectEvent}
+              showRecord={showRecord}
             />
           ))}
         </ol>
@@ -49,27 +50,28 @@ export default function ActivityPanel({ data, passedCount, selectedEvent, onSele
         isPinned={Boolean(selectedEvent)}
         groupColor={eventInDetails ? colorForGroup(colors, eventInDetails.groupIndex) : undefined}
         onUnpin={() => onSelectEvent(null)}
+        showRecord={showRecord}
       />
     </section>
   );
 }
 
-function ActivityRow({ event, groupColor, isSelected, justArrived, onSelect }) {
+function ActivityRow({ event, groupColor, isSelected, justArrived, onSelect, showRecord }) {
   const classNames = ['activity-row', isSelected && 'selected', justArrived && 'just-arrived'].filter(Boolean).join(' ');
   return (
     <li>
       <button type="button" className={classNames} style={{ '--group-color': groupColor }} onClick={() => onSelect(event)}>
         <span className="row-time">{formatClockTime(event.time)}</span>
         <span className="row-group">{event.groupName}</span>
-        <span className="row-record">{event.recordText}</span>
+        {showRecord && <span className="row-record">{event.recordText}</span>}
       </button>
     </li>
   );
 }
 
-function EventDetails({ event, isPinned, groupColor, onUnpin }) {
+function EventDetails({ event, isPinned, groupColor, onUnpin, showRecord }) {
   if (!event) {
-    return <aside className="event-details empty-message">Press play or tap a marker to see its full record here.</aside>;
+    return <aside className="event-details empty-message">Tap a marker to see its full record here.</aside>;
   }
 
   const delayMs = event.recordTime !== null ? event.time - event.recordTime : null;
@@ -119,8 +121,12 @@ function EventDetails({ event, isPinned, groupColor, onUnpin }) {
         </dd>
       </dl>
 
-      <h3 className="record-heading">Record</h3>
-      <pre className="record-text">{event.recordText || '(empty)'}</pre>
+      {showRecord && (
+        <>
+          <h3 className="record-heading">Record</h3>
+          <pre className="record-text">{event.recordText || '(empty)'}</pre>
+        </>
+      )}
     </aside>
   );
 }

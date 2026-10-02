@@ -2,6 +2,27 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { MIN_VISIBLE_SPAN_MS, clamp } from './timelineGeometry';
 import { ONE_SECOND } from './timeFormat';
 
+function readRangeParam() {
+  const raw = new URLSearchParams(window.location.search).get('t');
+  if (!raw) return null;
+  const [s, e] = raw.split(',').map(Number);
+  if (!isNaN(s) && !isNaN(e) && e > s) return { start: s, end: e };
+  return null;
+}
+
+function writeRangeParam(range) {
+  const params = new URLSearchParams(window.location.search);
+  params.set('t', `${Math.round(range.start)},${Math.round(range.end)}`);
+  history.replaceState(null, '', `?${params.toString()}`);
+}
+
+function clearRangeParam() {
+  const params = new URLSearchParams(window.location.search);
+  params.delete('t');
+  const newSearch = params.toString();
+  history.replaceState(null, '', newSearch ? `?${newSearch}` : window.location.pathname);
+}
+
 /**
  * Owns which slice of time the tracks show (the "visible range"), plus a
  * history of zoom levels so "Zoom out" can step back through them.
@@ -14,19 +35,37 @@ export function useTimelineView(data) {
     return { start: data.firstEventTime - padding, end: data.lastEventTime + padding };
   }, [data]);
 
-  const [visibleRange, setVisibleRangeState] = useState(fullRange);
+  const [visibleRange, setVisibleRangeState] = useState(() => {
+    const fromUrl = readRangeParam();
+    if (fromUrl) {
+      // Validate it overlaps the data; fall through to fullRange if not.
+      const start = Math.max(fromUrl.start, fullRange.start);
+      const end = Math.min(fromUrl.end, fullRange.end);
+      if (end > start) return { start, end };
+    }
+    return fullRange;
+  });
   const [zoomHistory, setZoomHistory] = useState([]);
   const visibleRangeRef = useRef(visibleRange);
+  const didInitRef = useRef(false);
 
   const fullSpan = fullRange.end - fullRange.start;
   const maxVisibleSpan = fullSpan * 1.25;
 
-  /** Set the visible range, keeping it within sensible zoom limits. */
+  /** Set the visible range, keeping it within sensible zoom limits and data bounds. */
   const showRange = useCallback(
     (range, { rememberPrevious = false } = {}) => {
       const span = clamp(range.end - range.start, MIN_VISIBLE_SPAN_MS, maxVisibleSpan);
       const center = (range.start + range.end) / 2;
-      const nextRange = { start: center - span / 2, end: center + span / 2 };
+      let start = center - span / 2;
+      let end = center + span / 2;
+
+      // Keep within the data bounds — can't pan past the first or last event.
+      if (start < fullRange.start) { start = fullRange.start; end = start + span; }
+      if (end > fullRange.end) { end = fullRange.end; start = end - span; }
+      const nextRange = { start, end };
+
+      writeRangeParam(nextRange);
 
       if (rememberPrevious) {
         const previousRange = visibleRangeRef.current;
@@ -35,11 +74,17 @@ export function useTimelineView(data) {
       visibleRangeRef.current = nextRange;
       setVisibleRangeState(nextRange);
     },
-    [maxVisibleSpan],
+    [fullRange, maxVisibleSpan],
   );
 
   useEffect(() => {
+    // Skip the first firing — useState already initialized correctly from URL.
+    if (!didInitRef.current) {
+      didInitRef.current = true;
+      return;
+    }
     setZoomHistory([]);
+    clearRangeParam();
     visibleRangeRef.current = fullRange;
     setVisibleRangeState(fullRange);
   }, [fullRange]);

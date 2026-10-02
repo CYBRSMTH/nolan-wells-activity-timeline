@@ -1,42 +1,43 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { buildTimelineData, countEventsAtOrBefore } from './timelineData';
+import { buildTimelineData, countEventsAtOrBefore, filterData } from './timelineData';
 import { useThemeColors } from './theme';
-import { usePlayback, PLAYBACK_SPEEDS } from './usePlayback';
+import { usePlayback } from './usePlayback';
+import { useFilters } from './useFilters';
 import { useTimelineView } from './useTimelineView';
-import { formatDateLabel, formatDuration } from './timeFormat';
+import { formatDateLabel } from './timeFormat';
 import TransportBar from './components/TransportBar';
 import OverviewStrip from './components/OverviewStrip';
 import TimelineTracks from './components/TimelineTracks';
 import ViewControls from './components/ViewControls';
 import ActivityPanel from './components/ActivityPanel';
-import Toast, { useToast } from './components/Toast';
+import FilterDrawer from './components/FilterDrawer';
 
 export default function App({ records }) {
   const data = useMemo(() => buildTimelineData(records), [records]);
   const colors = useThemeColors();
-  const { message: toastMessage, isVisible: toastIsVisible, showToast } = useToast();
 
-  const playback = usePlayback(data, {
-    onQuietGapSkipped: (skippedMs) => showToast(`Skipped ${formatDuration(skippedMs)} with no activity`),
-  });
+  const { visibleGroups, setVisibleGroups, visibleStatuses, setVisibleStatuses } = useFilters(data.groupNames, data.allStatuses);
+  const filteredData = useMemo(() => filterData(data, visibleGroups, visibleStatuses), [data, visibleGroups, visibleStatuses]);
+
+  const playback = usePlayback(data);
   const view = useTimelineView(data);
 
-  const [followPlayhead, setFollowPlayhead] = useState(true);
+  const [filterDrawerOpen, setFilterDrawerOpen] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState(null);
+  const showRecord = new URLSearchParams(window.location.search).get('show_record') === 'true';
 
-  const passedCount = countEventsAtOrBefore(data.events, playback.playheadTime);
+  const passedCount = countEventsAtOrBefore(filteredData.events, playback.playheadTime);
 
-  // While playing, scroll the tracks along with the playhead.
-  const { isPlaying, playheadTime } = playback;
-  const { followTime } = view;
+  // Clear selection if its group or status is filtered out.
   useEffect(() => {
-    if (isPlaying && followPlayhead) followTime(playheadTime);
-  }, [isPlaying, followPlayhead, playheadTime, followTime]);
+    if (selectedEvent && (!visibleGroups.has(selectedEvent.groupName) || !visibleStatuses.has(selectedEvent.status))) {
+      setSelectedEvent(null);
+    }
+  }, [visibleGroups, visibleStatuses, selectedEvent]);
 
-  // Clear the selection when the dataset changes.
+  // Clear selection when the dataset changes.
   useEffect(() => setSelectedEvent(null), [data]);
 
-  /** Select an activity (or pass null to clear): jumps the playhead to it and pulses it. */
   const selectEvent = useCallback(
     (event) => {
       setSelectedEvent(event);
@@ -49,40 +50,35 @@ export default function App({ records }) {
   );
 
   const stepAndReveal = (direction) => {
-    const event = playback.stepToNeighborEvent(direction);
-    if (event) view.bringIntoView(event.time);
+    const event = playback.stepToNeighborEvent(filteredData.events, direction);
+    if (event) {
+      setSelectedEvent(null);
+      view.bringIntoView(event.time);
+    }
   };
 
-  const changeSpeedBy = (steps) => {
-    const currentIndex = PLAYBACK_SPEEDS.indexOf(playback.playbackSpeed);
-    const nextSpeed = PLAYBACK_SPEEDS[Math.max(0, Math.min(PLAYBACK_SPEEDS.length - 1, currentIndex + steps))];
-    playback.setPlaybackSpeed(nextSpeed);
-    showToast(`Speed ${nextSpeed.toLocaleString()}×`);
-  };
-
-  // Keyboard shortcuts. The listener is attached once and always calls the
-  // latest version of this function through a ref.
   const handleShortcutRef = useRef(null);
   handleShortcutRef.current = (event) => {
     const tagName = event.target.tagName;
     if (tagName === 'INPUT' || tagName === 'SELECT' || tagName === 'TEXTAREA') return;
-    if (tagName === 'BUTTON' && (event.key === ' ' || event.key === 'Enter')) return;
+    if (tagName === 'BUTTON' && event.key === 'Enter') return;
 
     const { visibleRange } = view;
+    const { playheadTime } = playback;
     const playheadIsVisible = playheadTime >= visibleRange.start && playheadTime <= visibleRange.end;
     const zoomAnchor = playheadIsVisible ? playheadTime : (visibleRange.start + visibleRange.end) / 2;
 
     const actions = {
-      ' ': () => playback.togglePlay(),
       ArrowRight: () => stepAndReveal(1),
       ArrowLeft: () => stepAndReveal(-1),
       '=': () => view.zoomAround(zoomAnchor, 0.5, { rememberPrevious: true }),
       '+': () => view.zoomAround(zoomAnchor, 0.5, { rememberPrevious: true }),
       '-': () => view.zoomOut(),
       0: () => view.fitAll(),
-      ']': () => changeSpeedBy(1),
-      '[': () => changeSpeedBy(-1),
-      Escape: () => setSelectedEvent(null),
+      Escape: () => {
+        if (filterDrawerOpen) setFilterDrawerOpen(false);
+        else setSelectedEvent(null);
+      },
     };
     const action = actions[event.key];
     if (action) {
@@ -96,48 +92,46 @@ export default function App({ records }) {
     return () => window.removeEventListener('keydown', listener);
   }, []);
 
+  const filterActive = visibleGroups.size < data.groupNames.length || visibleStatuses.size < data.allStatuses.length;
+
   return (
     <div className="app">
       <header className="page-header">
-        <h1>Activity replay</h1>
+        <h1>Activity Timeline</h1>
         <p className="summary">
-          {data.events.length.toLocaleString()} activities across {data.groupNames.length} chat groups,{' '}
+          {filteredData.events.length.toLocaleString()} of {data.events.length.toLocaleString()} activities across{' '}
+          {filteredData.groupNames.length} of {data.groupNames.length} chat groups,{' '}
           {formatDateLabel(data.firstEventTime)} to {formatDateLabel(data.lastEventTime)}.
         </p>
       </header>
 
       <section className="panel timeline-panel">
         <TransportBar
-          playheadTime={playheadTime}
+          playheadTime={playback.playheadTime}
           passedCount={passedCount}
-          totalCount={data.events.length}
-          isPlaying={isPlaying}
-          onTogglePlay={playback.togglePlay}
+          totalCount={filteredData.events.length}
           onStepBackward={() => stepAndReveal(-1)}
           onStepForward={() => stepAndReveal(1)}
-          playbackSpeed={playback.playbackSpeed}
-          onChangeSpeed={playback.setPlaybackSpeed}
-          skipQuietGaps={playback.skipQuietGaps}
-          onChangeSkipQuietGaps={playback.setSkipQuietGaps}
-          followPlayhead={followPlayhead}
-          onChangeFollowPlayhead={setFollowPlayhead}
+          onToggleFilterDrawer={() => setFilterDrawerOpen((open) => !open)}
+          filterActive={filterActive}
         />
         <OverviewStrip
-          data={data}
+          data={filteredData}
           colors={colors}
           fullRange={view.fullRange}
           visibleRange={view.visibleRange}
-          playheadTime={playheadTime}
+          playheadTime={playback.playheadTime}
           onChangeRange={view.showRange}
           onRememberRange={view.rememberRange}
         />
         <TimelineTracks
-          data={data}
+          data={filteredData}
           colors={colors}
           visibleRange={view.visibleRange}
-          playheadTime={playheadTime}
+          playheadTime={playback.playheadTime}
           pulseTracker={playback.pulseTracker}
           selectedEvent={selectedEvent}
+          showRecord={showRecord}
           onSeek={playback.seek}
           onSelectEvent={selectEvent}
           onZoomToRange={(range) => view.showRange(range, { rememberPrevious: true })}
@@ -149,20 +143,31 @@ export default function App({ records }) {
 
       <p className="hint">
         Drag across the tracks to zoom into that span. Tap a marker to see its full record, or tap an empty spot to move the
-        playhead. Drag the handle at the top to scrub, and drag the window in the strip above to pan. Ctrl + scroll zooms, Space
-        plays and pauses, and the arrow keys step between activities.
+        playhead. Drag the handle at the top to scrub, and drag the window in the strip above to pan. Ctrl + scroll zooms,
+        Shift + scroll pans, and the arrow keys step between activities.
       </p>
 
       <ActivityPanel
-        data={data}
+        data={filteredData}
         passedCount={passedCount}
         selectedEvent={selectedEvent}
         onSelectEvent={selectEvent}
         colors={colors}
         pulseTracker={playback.pulseTracker}
+        showRecord={showRecord}
       />
 
-      <Toast message={toastMessage} isVisible={toastIsVisible} />
+      <FilterDrawer
+        isOpen={filterDrawerOpen}
+        onClose={() => setFilterDrawerOpen(false)}
+        allGroupNames={data.groupNames}
+        visibleGroups={visibleGroups}
+        onChangeVisibleGroups={setVisibleGroups}
+        allStatuses={data.allStatuses}
+        visibleStatuses={visibleStatuses}
+        onChangeVisibleStatuses={setVisibleStatuses}
+        colors={colors}
+      />
     </div>
   );
 }

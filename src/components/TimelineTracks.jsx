@@ -3,7 +3,7 @@ import { useCanvas } from '../useCanvas';
 import { drawTracks } from '../drawTimeline';
 import { clamp, createTimeScale, findEventNear, getTrackLayout } from '../timelineGeometry';
 import { colorForGroup } from '../theme';
-import { formatClockTime } from '../timeFormat';
+import { formatClockTime, formatDateLabel } from '../timeFormat';
 
 const DRAG_THRESHOLD_PX = 6; // movement before a press becomes a drag-to-zoom
 const MIN_ZOOM_SELECTION_PX = 8;
@@ -28,6 +28,7 @@ export default function TimelineTracks({
   playheadTime,
   pulseTracker,
   selectedEvent,
+  showRecord,
   onSeek,
   onSelectEvent,
   onZoomToRange,
@@ -180,7 +181,7 @@ export default function TimelineTracks({
       onZoomAround(timeAtPointer, Math.exp(clamp(event.deltaY, -40, 40) * 0.01));
     } else if (event.shiftKey || Math.abs(event.deltaX) > Math.abs(event.deltaY)) {
       event.preventDefault();
-      const scrollPixels = event.shiftKey ? event.deltaY : event.deltaX;
+      const scrollPixels = Math.abs(event.deltaX) >= Math.abs(event.deltaY) ? event.deltaX : event.deltaY;
       const msPerPixel = (visibleRange.end - visibleRange.start) / (layout.tracksRight - layout.tracksLeft);
       onPanBy(scrollPixels * msPerPixel);
     }
@@ -220,13 +221,14 @@ export default function TimelineTracks({
           containerWidth={widthRef.current}
           containerHeight={canvasHeight}
           groupColor={colorForGroup(colors, tooltip.event.groupIndex)}
+          showRecord={showRecord}
         />
       )}
     </div>
   );
 }
 
-function EventTooltip({ event, x, y, containerWidth, containerHeight, groupColor }) {
+function EventTooltip({ event, x, y, containerWidth, containerHeight, groupColor, showRecord }) {
   const halfWidth = 150;
   const left = containerWidth > halfWidth * 2 + 16 ? clamp(x, halfWidth + 8, containerWidth - halfWidth - 8) : containerWidth / 2;
   const placement = y < containerHeight / 2 ? 'below' : 'above';
@@ -234,9 +236,9 @@ function EventTooltip({ event, x, y, containerWidth, containerHeight, groupColor
   return (
     <div className={`tooltip ${placement}`} style={{ left, top: y, '--group-color': groupColor }}>
       <div className="tooltip-meta">
-        {formatClockTime(event.time)} <strong>{event.groupName}</strong> {event.status}
+        {formatDateLabel(event.time)} {formatClockTime(event.time)} · <strong>{event.groupName}</strong> {event.status}
       </div>
-      <div className="tooltip-record">{event.recordText}</div>
+      {showRecord && <div className="tooltip-record">{event.recordText}</div>}
     </div>
   );
 }
