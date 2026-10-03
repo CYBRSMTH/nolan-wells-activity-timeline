@@ -3,6 +3,7 @@ import { buildTimelineData, countEventsAtOrBefore, filterData } from './timeline
 import { useThemeColors } from './theme';
 import { usePlayback } from './usePlayback';
 import { useFilters } from './useFilters';
+import { useSearch } from './useSearch';
 import { useTimelineView } from './useTimelineView';
 import { formatDateLabel } from './timeFormat';
 import TransportBar from './components/TransportBar';
@@ -11,20 +12,24 @@ import TimelineTracks from './components/TimelineTracks';
 import ViewControls from './components/ViewControls';
 import ActivityPanel from './components/ActivityPanel';
 import FilterDrawer from './components/FilterDrawer';
+import SearchModal from './components/SearchModal';
 
 export default function App({ records }) {
   const data = useMemo(() => buildTimelineData(records), [records]);
   const colors = useThemeColors();
 
-  const { visibleGroups, setVisibleGroups, visibleStatuses, setVisibleStatuses } = useFilters(data.groupNames, data.allStatuses);
+  const { visibleGroups, setVisibleGroups, visibleStatuses, setVisibleStatuses, showRecord, setShowRecord } = useFilters(data.groupNames, data.allStatuses);
   const filteredData = useMemo(() => filterData(data, visibleGroups, visibleStatuses), [data, visibleGroups, visibleStatuses]);
 
   const playback = usePlayback(data);
   const view = useTimelineView(data);
 
   const [filterDrawerOpen, setFilterDrawerOpen] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState(null);
-  const showRecord = new URLSearchParams(window.location.search).get('show_record') === 'true';
+
+  const search = useSearch(data.events);
+  const eventsById = useMemo(() => new Map(data.events.map((e) => [e.id, e])), [data]);
 
   const passedCount = countEventsAtOrBefore(filteredData.events, playback.playheadTime);
 
@@ -68,6 +73,12 @@ export default function App({ records }) {
     const playheadIsVisible = playheadTime >= visibleRange.start && playheadTime <= visibleRange.end;
     const zoomAnchor = playheadIsVisible ? playheadTime : (visibleRange.start + visibleRange.end) / 2;
 
+    if ((event.ctrlKey || event.metaKey) && event.key === 'f' && showRecord) {
+      event.preventDefault();
+      setSearchOpen(true);
+      return;
+    }
+
     const actions = {
       ArrowRight: () => stepAndReveal(1),
       ArrowLeft: () => stepAndReveal(-1),
@@ -76,7 +87,8 @@ export default function App({ records }) {
       '-': () => view.zoomOut(),
       0: () => view.fitAll(),
       Escape: () => {
-        if (filterDrawerOpen) setFilterDrawerOpen(false);
+        if (searchOpen) setSearchOpen(false);
+        else if (filterDrawerOpen) setFilterDrawerOpen(false);
         else setSelectedEvent(null);
       },
     };
@@ -96,8 +108,9 @@ export default function App({ records }) {
 
   return (
     <div className="app">
+      <p className="justice-banner">#JusticeForNolanWells</p>
       <header className="page-header">
-        <h1>Activity Timeline</h1>
+        <h1>Device Activity Timeline</h1>
         <p className="summary">
           {filteredData.events.length.toLocaleString()} of {data.events.length.toLocaleString()} activities across{' '}
           {filteredData.groupNames.length} of {data.groupNames.length} chat groups,{' '}
@@ -114,7 +127,9 @@ export default function App({ records }) {
           onStepForward={() => stepAndReveal(1)}
           onToggleFilterDrawer={() => setFilterDrawerOpen((open) => !open)}
           filterActive={filterActive}
+          onToggleSearch={showRecord ? () => setSearchOpen((open) => !open) : null}
         />
+        <ViewControls visibleRange={view.visibleRange} canZoomOut={view.canZoomOut} onZoomOut={view.zoomOut} onFitAll={view.fitAll} />
         <OverviewStrip
           data={filteredData}
           colors={colors}
@@ -138,7 +153,6 @@ export default function App({ records }) {
           onZoomAround={view.zoomAround}
           onPanBy={view.panBy}
         />
-        <ViewControls visibleRange={view.visibleRange} canZoomOut={view.canZoomOut} onZoomOut={view.zoomOut} onFitAll={view.fitAll} />
       </section>
 
       <p className="hint">
@@ -166,8 +180,25 @@ export default function App({ records }) {
         allStatuses={data.allStatuses}
         visibleStatuses={visibleStatuses}
         onChangeVisibleStatuses={setVisibleStatuses}
+        showRecord={showRecord}
+        onChangeShowRecord={setShowRecord}
         colors={colors}
       />
+
+      <SearchModal
+        isOpen={searchOpen}
+        onClose={() => setSearchOpen(false)}
+        query={search.query}
+        onQueryChange={search.setQuery}
+        results={search.results}
+        eventsById={eventsById}
+        onSelectEvent={(event) => { selectEvent(event); setSearchOpen(false); }}
+        colors={colors}
+      />
+
+      <footer className="page-footer">
+        <p className="justice-banner">#JusticeForNolanWells</p>
+      </footer>
     </div>
   );
 }

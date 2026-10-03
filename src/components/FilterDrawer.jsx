@@ -10,6 +10,8 @@ export default function FilterDrawer({
   allStatuses,
   visibleStatuses,
   onChangeVisibleStatuses,
+  showRecord,
+  onChangeShowRecord,
   colors,
 }) {
   const allGroupsVisible = visibleGroups.size === allGroupNames.length;
@@ -46,7 +48,21 @@ export default function FilterDrawer({
           </button>
         </div>
 
-        <div className="filter-section-heading filter-section-heading--first">Activity Status</div>
+        <div className="filter-section-heading filter-section-heading--first">Display</div>
+        <ul className="filter-group-list">
+          <li>
+            <label className="filter-group-item">
+              <input
+                type="checkbox"
+                checked={showRecord}
+                onChange={(e) => onChangeShowRecord(e.target.checked)}
+              />
+              <span className="filter-group-name">Show record text</span>
+            </label>
+          </li>
+        </ul>
+
+        <div className="filter-section-heading">Activity Status</div>
         <ul className="filter-group-list">
           {allStatuses.map((status) => (
             <li key={status}>

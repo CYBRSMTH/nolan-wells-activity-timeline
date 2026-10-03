@@ -1,4 +1,4 @@
-# Activity Timeline
+# Device Activity Timeline
 
     npm install
     npm run dev
@@ -8,6 +8,7 @@ To use real data, export it from the notebook as a JSON array, save it as
 
 ## Navigation
 
+- **Ctrl/⌘ + F** — open record search (magnifying glass button also opens it)
 - **Arrow keys** — step backward/forward one event at a time
 - **Drag across the tracks** — zoom into that time span
 - **Ctrl + scroll** — zoom in/out around the cursor
@@ -17,25 +18,18 @@ To use real data, export it from the notebook as a JSON array, save it as
 - **0** — fit the full dataset into view
 - **Esc** — clear selection / close filter drawer
 
-## Filters (filter drawer)
+## Filters & URL params
 
-The funnel button in the top-right of the transport bar opens a filter drawer. Filters are persisted in URL query params so they survive reloads and can be shared.
+The funnel button opens a filter drawer with controls for display options, activity status, and chat groups. All settings persist in URL query params and are included when you copy the link with the **share button** (link icon in the transport bar).
 
-| Param | Behavior |
-| --- | --- |
-| `excluded=A,B` | Hide chat groups A and B from the grid |
-| `excludedStatuses=SENT` | Hide events with that Activity Status |
-
-Both params accept comma-separated values. Omitting a param means "show all."
-
-The **share button** (link icon, right side of the transport bar) copies the full URL including all active filters and the current viewport to your clipboard so you can send someone an exact view.
-
-## Hidden params
+## URL params
 
 | Param | Default | Behavior |
 | --- | --- | --- |
-| `t=start,end` | full range | Visible time window as two Unix-ms timestamps. Set automatically when you pan/zoom; use the share button to copy the full URL. |
-| `show_record=true` | hidden | Shows the raw Record field in the event tooltip, the activity list, and the event detail panel. Omit or set to anything else to hide it. |
+| `excluded=A,B` | (none) | Hide chat groups A and B from the grid |
+| `excludedStatuses=SENT` | (none) | Hide events with that Activity Status |
+| `t=start,end` | full range | Visible time window as two Unix-ms timestamps. Set automatically when you pan/zoom. |
+| `show_record=false` | (records visible) | Hides the Record field everywhere and disables search. Useful when sharing the timeline without exposing message content. |
 
 ## Marker shapes
 
@@ -56,7 +50,8 @@ All markers are hollow (stroke only).
 | `src/App.jsx` | Puts the page together and wires up keyboard shortcuts |
 | `src/timelineData.js` | Turns raw records into timeline events; `filterData()` applies group/status filters |
 | `src/usePlayback.js` | Playhead position and step navigation |
-| `src/useFilters.js` | Group and status filter state, URL param persistence |
+| `src/useFilters.js` | Group, status, and record-visibility filter state with URL param persistence |
+| `src/useSearch.js` | MiniSearch index over record text; exposes query + results |
 | `src/useTimelineView.js` | Which slice of time is on screen, zooming, and zoom history |
 | `src/useCanvas.js` | Sizes a canvas and runs its redraw loop |
 | `src/drawTimeline.js` | All canvas drawing. `markerStyleFor()` decides how markers look |

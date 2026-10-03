@@ -9,6 +9,7 @@
     "build:single-file": "node build-single-file.mjs"
   },
   "dependencies": {
+    "minisearch": "^7.2.0",
     "react": "^19.3.0",
     "react-dom": "^19.3.0"
   },

@@ -108,6 +108,7 @@ function drawGridAndAxis(ctx, layout, visibleRange, scale, colors) {
     ctx.lineTo(x, axisTop);
     ctx.stroke();
 
+    // Bottom axis tick + label
     ctx.strokeStyle = colors.line;
     ctx.beginPath();
     ctx.moveTo(x, axisTop);
@@ -119,6 +120,14 @@ function drawGridAndAxis(ctx, layout, visibleRange, scale, colors) {
       ctx.font = `${isDayBoundary ? 500 : 400} 12px ${FONT_FAMILY}`;
       ctx.fillStyle = isDayBoundary ? colors.text : colors.mutedText;
       ctx.fillText(formatAxisLabel(time, ticks.spacing), x, axisTop + 17);
+
+      // Top axis label (mirrored into the ruler strip)
+      ctx.strokeStyle = colors.line;
+      ctx.beginPath();
+      ctx.moveTo(x, 0);
+      ctx.lineTo(x, 5);
+      ctx.stroke();
+      ctx.fillText(formatAxisLabel(time, ticks.spacing), x, 13);
     }
   }
   ctx.restore();

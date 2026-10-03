@@ -15,6 +15,15 @@ function writeParams(updates) {
   history.replaceState(null, '', newSearch ? `?${newSearch}` : window.location.pathname);
 }
 
+function writeShowRecordParam(value) {
+  const params = new URLSearchParams(window.location.search);
+  // Default is true — only write the param when records are hidden.
+  if (value) params.delete('show_record');
+  else params.set('show_record', 'false');
+  const newSearch = params.toString();
+  history.replaceState(null, '', newSearch ? `?${newSearch}` : window.location.pathname);
+}
+
 export function useFilters(allGroupNames, allStatuses) {
   const [visibleGroups, setVisibleGroupsState] = useState(() => {
     const excluded = readParam('excluded');
@@ -26,6 +35,11 @@ export function useFilters(allGroupNames, allStatuses) {
     const excluded = readParam('excludedStatuses');
     if (!excluded) return new Set(allStatuses);
     return new Set(allStatuses.filter((s) => !excluded.has(s)));
+  });
+
+  const [showRecord, setShowRecordState] = useState(() => {
+    const raw = new URLSearchParams(window.location.search).get('show_record');
+    return raw === null ? true : raw !== 'false';
   });
 
   const setVisibleGroups = (groups) => {
@@ -40,5 +54,10 @@ export function useFilters(allGroupNames, allStatuses) {
     writeParams({ excludedStatuses: excluded });
   };
 
-  return { visibleGroups, setVisibleGroups, visibleStatuses, setVisibleStatuses };
+  const setShowRecord = (value) => {
+    setShowRecordState(value);
+    writeShowRecordParam(value);
+  };
+
+  return { visibleGroups, setVisibleGroups, visibleStatuses, setVisibleStatuses, showRecord, setShowRecord };
 }
